@@ -157,3 +157,72 @@ def debug_column_values(df, column, n=10):
 
 def get_color_palette(n_colors):
     return plt.cm.RdYlGn(np.linspace(0, 1, n_colors))
+def parse_multi_select_by_keyword(df, column):
+    keywords = {
+        'Q28': {
+            "Physical health": "Physical health improvements",
+            "Mental health": "Mental health improvements",
+            "environment": "Better for the environment (air quality, urban biodiversity, etc.)",
+            "Faster": "Faster or more efficient transportation",
+            "less busy": "Makes the city less busy / traffic noise reduction",
+            "Economic": "Economic benefits",
+            "does not bring any benefits": "Cycling does not bring any benefits"
+        },
+        'Q29': {
+            "Safety concerns": "Safety concerns",
+            "Mental health problems": "Mental health problems",
+            "Physical health problems": "Physical health problems (respiratory sickness, etc.)",
+            "Traffic disruptions": "Traffic disruptions",
+            "More conflict": "More conflict with pedestrian / car users",
+            "does not bring any disbenefits": "Cycling does not bring any disbenefits"
+        },
+        'Q22': {
+            "distance is too far": "The distance is too far",
+            "transport (e.g. car) is much more convenient": "Public transport / private transport (e.g. car) is much more convenient",
+            "Poor cycling facilities": "Poor cycling facilities (e.g., bike lanes, bike parking)",
+            "Safety issues": "Safety issues",
+            "Physical health reasons": "Physical health reasons",
+            "stereotypical image": "The stereotypical image of cyclists",
+            "Weather conditions": "Weather conditions",
+            "Nothing discourages": "Nothing discourages me from cycling",
+            "Difficult Terrain": "Difficult Terrain",
+            "do not own a bicycle": "I do not own a bicycle",
+            "Mental health reasons": "Mental health reasons"
+        },
+        'Q21': {
+            "Physical health reasons": "Physical health reasons / fitness",
+            "Mental health reasons": "Mental health reasons",
+            "Time efficiency": "Time efficiency / independence from public transport schedule",
+            "Cost-saving reasons": "Cost-saving reasons",
+            "Environmental concerns": "Environmental concerns",
+            "Enjoyment purpose": "Enjoyment purpose",
+            "Being outside in nature": "Being outside in nature",
+            "Friends / family cycle": "Friends / family cycle too",
+            "Nothing encourages": "Nothing encourages me to cycle"
+        },
+        'Q33': {
+            "Improved bike lanes": "Improved bike lanes and infrastructure",
+            "Bike-sharing": "Expanded bike-sharing programs",
+            "Integration with public transport": "Better integration of cycling with public transport",
+            "Financial incentives": "Financial incentives for cycling",
+            "Education and awareness": "Education and awareness programs",
+            "Traffic calming": "Traffic calming measures",
+            "Bike parking": "Improved bike parking facilities",
+            "No support": "No support for any cycling policies"
+        }
+    }
+
+    options = df[column].dropna()
+    matched_options = {}
+    unmatched_options = set()
+
+    for response in options:
+        matched = False
+        for key, full_text in keywords.get(column, {}).items():
+            if key.lower() in response.lower():
+                matched_options[full_text] = matched_options.get(full_text, 0) + 1
+                matched = True
+        if not matched and "Other" not in response:
+            unmatched_options.add(response)
+
+    return matched_options, unmatched_options
