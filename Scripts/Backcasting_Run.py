@@ -4,7 +4,11 @@ import matplotlib.pyplot as plt
 import cProfile
 import pstats
 from io import StringIO
-
+import numpy as np
+import random
+def set_random_seed(seed=42):
+    np.random.seed(seed)
+    random.seed(seed)
 # ------------------------- End of User Input Section -------------------------
 # State node representation
 class StateNode:
@@ -225,6 +229,7 @@ def visualize_best_path(path):
         annotations = []
         successful_actions = []
         failed_actions = []
+        exogenous_effect = None
         
         for log_entry in step['debug_log']:
             if "succeeded" in log_entry:
@@ -233,8 +238,12 @@ def visualize_best_path(path):
             elif "failed" in log_entry:
                 action = log_entry.split()[1]
                 failed_actions.append(action)
-            elif "Exogenous Effects" in log_entry and "No" not in log_entry:
-                annotations.append(log_entry)
+            elif "Exogenous Effects" in log_entry:
+                exogenous_effect = log_entry.split(":")[0]  # Capture the label
+            elif "s:" in log_entry and exogenous_effect:
+                # This means exogenous effects were applied
+                annotations.append(exogenous_effect)
+                exogenous_effect = None  # Reset to avoid duplicate entries
         
         if successful_actions:
             annotations.append(f"Successful: {', '.join(successful_actions)}")
@@ -286,27 +295,12 @@ def visualize_best_path(path):
     plt.show()
 best_path = find_best_path(paths)
 
-
-if best_path:
-    print("Best Path:")
-    for step in best_path:
-        decision_names = [DECISIONS[i] for i, d in enumerate(step['decisions']) if d == 1]
-        modal_shares_str = ', '.join([f"{k.upper()}: {v:.3f}" for k, v in step['modal_shares'].items()])
-        print(f"Time {step['time']}:")
-        print(f"  Decisions: {decision_names}")
-        print(f"  Modal Shares: {modal_shares_str}")
-        print(f"  Cost: {step['cost']:.3f}")
-        print("  Debug Log:")
-        for log_entry in step['debug_log']:
-            print(f"    {log_entry}")
-        print()
-    visualize_best_path(best_path)
-else:
-    print("No feasible paths found.")
-
 # Wrap the main execution in a function
 def main():
     global paths  # Make paths global so it can be accessed outside the function
+    # Set the random seed at the beginning of main
+    set_random_seed()
+    
     paths = build_graph(initial_modal_shares, final_states)
 
     print(f"Total feasible paths to desired final states: {len(paths)}\n")
@@ -343,3 +337,7 @@ if __name__ == "__main__":
     ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
     ps.print_stats(20)  # Print top 20 time-consuming functions
     print(s.getvalue())
+
+def set_random_seed(seed=42):
+    np.random.seed(seed)
+    random.seed(seed)

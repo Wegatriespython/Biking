@@ -28,7 +28,7 @@ class Action:
                  success_probability=1.0, conditions=None, interactions=None, costs=None):
         self.name = name
         self.effects = self._normalize_effects(effects) if effects is not None else {}
-        self.cooldown = cooldown
+        self.cooldown = cooldown if cooldown is not None else 0
         self.one_time = one_time
         self.costs = costs if costs is not None else {}
         self.preparation = preparation
