@@ -6,6 +6,8 @@ import pstats
 from io import StringIO
 import numpy as np
 import random
+import time
+
 def set_random_seed(seed=42):
     np.random.seed(seed)
     random.seed(seed)
@@ -296,24 +298,99 @@ def visualize_best_path(path):
 best_path = find_best_path(paths)
 
 # Wrap the main execution in a function
-def main():
-    global paths  # Make paths global so it can be accessed outside the function
-    # Set the random seed at the beginning of main
-    set_random_seed()
+def monte_carlo_analysis(num_simulations):
+    best_paths = []
+    for _ in range(num_simulations):
+        paths = build_graph(initial_modal_shares, final_states)
+        best_paths.extend(sorted(paths, key=evaluate_path, reverse=True)[:min(10, len(paths))])
+    return best_paths
+
+def save_best_paths(best_paths, filename):
+    with open(filename, "w") as f:
+        f.write("Time,Decisions,Modal_Shares_s,Modal_Shares_c,Modal_Shares_p,Modal_Shares_o,Cost\n")
+        for path in best_paths:
+            for step in path:
+                decision_names = "|".join([DECISIONS[i] for i, d in enumerate(step['decisions']) if d == 1])
+                modal_shares = step['modal_shares']
+                f.write(f"{step['time']},{decision_names},{modal_shares['s']:.3f},{modal_shares['c']:.3f},{modal_shares['p']:.3f},{modal_shares['o']:.3f},{step['cost']:.3f}\n")
+            f.write("\n")
+
+def analyze_best_paths(best_paths):
+    print(f"Total simulations: {len(best_paths)}")
     
-    paths = build_graph(initial_modal_shares, final_states)
+    action_counts = {action: 0 for action in DECISIONS}
+    total_costs = []
+    risk_categories = {"High Risk": 0, "Low Risk": 0}
+    
+    for path in best_paths:
+        total_cost = 0.0
+        for step in path:
+            for i, decision in enumerate(step['decisions']):
+                if decision == 1:
+                    action_counts[DECISIONS[i]] += 1
+            total_cost += step['cost']
+        total_costs.append(total_cost)
+        
+        if total_cost > 0.5:  # Example threshold for high risk
+            risk_categories["High Risk"] += 1
+        else:
+            risk_categories["Low Risk"] += 1
+    
+    print("Action Frequencies:")
+    for action, count in action_counts.items():
+        print(f"  {action}: {count}")
+    
+    print("\nCost Analysis:")
+    print(f"  Average Cost: {np.mean(total_costs):.3f}")
+    print(f"  Max Cost: {np.max(total_costs):.3f}")
+    print(f"  Min Cost: {np.min(total_costs):.3f}")
+    
+    print("\nRisk Categories:")
+    for category, count in risk_categories.items():
+        print(f"  {category}: {count}")
 
-    print(f"Total feasible paths to desired final states: {len(paths)}\n")
+    # Save analysis results to a CSV file
+    with open("analysis_results.csv", "w") as f:
+        f.write("Category,Item,Value\n")
+        for action, count in action_counts.items():
+            f.write(f"Action Frequency,{action},{count}\n")
+        f.write(f"Cost Analysis,Average Cost,{np.mean(total_costs):.3f}\n")
+        f.write(f"Cost Analysis,Max Cost,{np.max(total_costs):.3f}\n")
+        f.write(f"Cost Analysis,Min Cost,{np.min(total_costs):.3f}\n")
+        for category, count in risk_categories.items():
+            f.write(f"Risk Category,{category},{count}\n")
 
-    best_path = find_best_path(paths)
+def main():
+    set_random_seed()
+
+    num_simulations = 2
+
+    print("Running Monte Carlo analysis...")
+    start_time = time.time()
+    best_paths = monte_carlo_analysis(num_simulations)
+    print(f"Monte Carlo analysis completed in {time.time() - start_time:.2f} seconds")
+
+    print("\nSaving and analyzing best paths...")
+    start_time = time.time()
+    save_best_paths(best_paths, "best_paths.csv")
+    analyze_best_paths(best_paths)
+    print(f"Saving and analysis completed in {time.time() - start_time:.2f} seconds")
+
+    if not best_paths:
+        print("No feasible paths found.")
+        return
+
+    print("\nFinding best path and visualizing...")
+    start_time = time.time()
+    best_path = find_best_path(best_paths)
 
     if best_path:
         print("Best Path:")
         for step in best_path:
             decision_names = [DECISIONS[i] for i, d in enumerate(step['decisions']) if d == 1]
-            modal_shares_str = ', '.join([f"{k.upper()}: {v:.3f}" for k, v in step['modal_shares'].items()])
+            modal_shares_str = ', '.join([f"{k}: {v:.3f}" for k, v in step['modal_shares'].items()])
             print(f"Time {step['time']}:")
-            print(f"  Decisions: {decision_names}")
+            print(f"  Decisions: {', '.join(decision_names)}")
             print(f"  Modal Shares: {modal_shares_str}")
             print(f"  Cost: {step['cost']:.3f}")
             print("  Debug Log:")
@@ -323,21 +400,25 @@ def main():
         visualize_best_path(best_path)
     else:
         print("No feasible paths found.")
+    print(f"Finding best path and visualizing completed in {time.time() - start_time:.2f} seconds")
 
 # Add this at the end of the file
 if __name__ == "__main__":
-    # Run the profiler
+    print("Timing entire script execution:")
+    start_time = time.time()
+    main()
+    print(f"Total execution time: {time.time() - start_time:.2f} seconds")
+
+    print("\nDetailed profiling information:")
     profiler = cProfile.Profile()
     profiler.enable()
-
     main()
-
     profiler.disable()
     s = StringIO()
     ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
     ps.print_stats(20)  # Print top 20 time-consuming functions
     print(s.getvalue())
 
-def set_random_seed(seed=42):
+def set_random_seed(seed=None):
     np.random.seed(seed)
     random.seed(seed)

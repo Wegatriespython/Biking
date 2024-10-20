@@ -4,6 +4,7 @@ using DataStructures
 using Plots
 using Combinatorics
 using Measures
+using BenchmarkTools  # Add this import
 
 include("Backcasting_input.jl")
 
@@ -317,42 +318,55 @@ function main()
     global paths
     set_random_seed()  # Remove the fixed seed
 
-    num_simulations = 300
-    best_paths = monte_carlo_analysis(num_simulations)
+    num_simulations = 4
     
-    # Save best paths to a CSV file
-    save_best_paths(best_paths, "best_paths.csv")
+    # Time the Monte Carlo analysis
+    println("Running Monte Carlo analysis...")
+    @time begin
+        best_paths = monte_carlo_analysis(num_simulations)
+    end
     
-    analyze_best_paths(best_paths)
+    # Time the saving and analysis of best paths
+    println("\nSaving and analyzing best paths...")
+    @time begin
+        save_best_paths(best_paths, "best_paths.csv")
+        analyze_best_paths(best_paths)
+    end
 
     if isempty(best_paths)
         println("No feasible paths found.")
         return
     end
 
-    best_path = find_best_path(best_paths)
+    # Time finding the best path and visualization
+    println("\nFinding best path and visualizing...")
+    @time begin
+        best_path = find_best_path(best_paths)
 
-    if best_path !== nothing
-        println("Best Path:")
-        for step in best_path
-            decision_names = [DECISIONS[i] for (i, d) in enumerate(step["decisions"]) if d == 1]
-            modal_shares_str = join([k * ": " * string(round(v, digits=3)) for (k, v) in step["modal_shares"]], ", ")
-            println("Time $(step["time"]):")
-            println("  Decisions: $(join(decision_names, ", "))")
-            println("  Modal Shares: $modal_shares_str")
-            println("  Cost: $(round(step["cost"], digits=3))")
-            println("  Debug Log:")
-            for log_entry in step["debug_log"]
-                println("    $log_entry")
+        if best_path !== nothing
+            println("Best Path:")
+            for step in best_path
+                decision_names = [DECISIONS[i] for (i, d) in enumerate(step["decisions"]) if d == 1]
+                modal_shares_str = join([k * ": " * string(round(v, digits=3)) for (k, v) in step["modal_shares"]], ", ")
+                println("Time $(step["time"]):")
+                println("  Decisions: $(join(decision_names, ", "))")
+                println("  Modal Shares: $modal_shares_str")
+                println("  Cost: $(round(step["cost"], digits=3))")
+                println("  Debug Log:")
+                for log_entry in step["debug_log"]
+                    println("    $log_entry")
+                end
+                println()
             end
-            println()
+            visualize_best_path(best_path)
+        else
+            println("No feasible paths found.")
         end
-        visualize_best_path(best_path)
-    else
-        println("No feasible paths found.")
     end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main()
+    # Time the entire script execution
+    println("Timing entire script execution:")
+    @time main()
 end
